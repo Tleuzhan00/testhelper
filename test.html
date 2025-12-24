@@ -1,0 +1,277 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Тест из Word</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://unpkg.com/mammoth/mammoth.browser.min.js"></script>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  font-family: Arial, sans-serif;
+  background: #f2f2f2;
+  padding: 10px;
+  margin: 0;
+}
+
+.container {
+  max-width: 520px;
+  margin: auto;
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+}
+
+h2 { text-align: center; }
+
+input[type=file] { width: 100%; margin-bottom: 10px; }
+
+button {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  border-radius: 10px;
+  border: none;
+  background: #eaeaea;
+  margin-bottom: 10px;
+}
+
+button.correct { background: #4CAF50; color: #fff; }
+button.wrong { background: #F44336; color: #fff; }
+
+.hidden { display: none; }
+
+.nav { display: flex; gap: 10px; }
+
+.nav button {
+  background: #2196F3;
+  color: #fff;
+}
+
+.progress {
+  text-align: center;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.result {
+  text-align: center;
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h2>Тест</h2>
+
+<!-- ЗАГРУЗКА -->
+<div id="inputBlock">
+  <input type="file" id="wordFile" accept=".docx">
+  <button onclick="loadWord()">Загрузить файл</button>
+</div>
+
+<!-- ТЕСТ -->
+<div id="test" class="hidden">
+  <div id="question"></div>
+  <div id="answers"></div>
+
+  <div class="nav">
+    <button onclick="prevQuestion()">⬅ Назад</button>
+    <button onclick="nextQuestion()">Далее ➡</button>
+  </div>
+
+  <div class="progress" id="progress"></div>
+</div>
+
+<!-- РЕЗУЛЬТАТ -->
+<div id="resultBlock" class="hidden">
+  <div class="result" id="resultText"></div>
+  <button onclick="restartTest()">Пройти ещё раз</button>
+  <button onclick="newDocument()">Загрузить новый документ</button>
+</div>
+
+</div>
+
+<script>
+let questions = [];
+let testQuestions = [];
+let current = 0;
+let score = 0;
+
+/* ===== восстановление ===== */
+window.onload = () => {
+  const saved = localStorage.getItem("parsedQuestions");
+  if (saved) {
+    questions = JSON.parse(saved);
+    document.getElementById("inputBlock").classList.add("hidden");
+    startTest();
+  }
+};
+
+/* ===== загрузка Word ===== */
+function loadWord() {
+  const fileInput = document.getElementById("wordFile");
+  if (!fileInput.files.length) {
+    alert("Выбери файл .docx");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    mammoth.extractRawText({ arrayBuffer: e.target.result })
+      .then(result => {
+        parseQuestions(result.value);
+
+        if (questions.length < 25) {
+          alert("В файле меньше 25 вопросов");
+          return;
+        }
+
+        localStorage.setItem("parsedQuestions", JSON.stringify(questions));
+
+        document.getElementById("inputBlock").classList.add("hidden");
+        startTest();
+      });
+  };
+
+  reader.readAsArrayBuffer(fileInput.files[0]);
+}
+
+/* ===== парсер ===== */
+function parseQuestions(text) {
+  questions = [];
+  const blocks = text.split(/<question\d*>/).filter(b => b.trim());
+
+  blocks.forEach(block => {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+
+    let question = "";
+    let answers = [];
+    let correctIndex = 0;
+
+    lines.forEach(line => {
+      if (!line.startsWith("<variant")) question = line;
+
+      if (line.startsWith("<variantright>")) {
+        answers.push(line.replace("<variantright>", "").trim());
+        correctIndex = answers.length - 1;
+      }
+
+      if (line.startsWith("<variant>")) {
+        answers.push(line.replace("<variant>", "").trim());
+      }
+    });
+
+    if (question && answers.length >= 2) {
+      questions.push({ question, answers, correctIndex });
+    }
+  });
+}
+
+/* ===== формирование теста ===== */
+function startTest() {
+  document.getElementById("resultBlock").classList.add("hidden");
+  document.getElementById("test").classList.remove("hidden");
+
+  const first100 = questions.slice(0, 100);
+  const second100 = questions.slice(100, 200);
+  const rest = questions.slice(200);
+
+  const part1 = shuffle(first100).slice(0, 12);
+  const part2 = shuffle(second100).slice(0, 6);
+  const part3 = shuffle(rest).slice(0, 7);
+
+  testQuestions = shuffle([...part1, ...part2, ...part3]);
+
+  current = 0;
+  score = 0;
+  showQuestion();
+}
+
+/* ===== показ ===== */
+function showQuestion() {
+  const q = testQuestions[current];
+  document.getElementById("question").textContent = q.question;
+  document.getElementById("progress").textContent =
+    `Вопрос ${current + 1} из ${testQuestions.length}`;
+
+  const aDiv = document.getElementById("answers");
+  aDiv.innerHTML = "";
+
+  shuffle(q.answers.map((a, i) => ({ text: a, index: i }))).forEach(o => {
+    const btn = document.createElement("button");
+    btn.textContent = o.text;
+
+    btn.onclick = () => {
+      [...aDiv.children].forEach(b => b.disabled = true);
+
+      if (o.index === q.correctIndex) {
+        btn.classList.add("correct");
+        score++;
+      } else {
+        btn.classList.add("wrong");
+        [...aDiv.children].forEach(b => {
+          if (b.textContent === q.answers[q.correctIndex]) {
+            b.classList.add("correct");
+          }
+        });
+      }
+    };
+
+    aDiv.appendChild(btn);
+  });
+}
+
+/* ===== навигация ===== */
+function nextQuestion() {
+  if (current < testQuestions.length - 1) {
+    current++;
+    showQuestion();
+  } else {
+    finishTest();
+  }
+}
+
+function prevQuestion() {
+  if (current > 0) {
+    current--;
+    showQuestion();
+  }
+}
+
+/* ===== завершение ===== */
+function finishTest() {
+  document.getElementById("test").classList.add("hidden");
+  document.getElementById("resultBlock").classList.remove("hidden");
+
+  document.getElementById("resultText").textContent =
+    `Результат: ${score} из ${testQuestions.length}`;
+}
+
+/* ===== действия после ===== */
+function restartTest() {
+  startTest();
+}
+
+function newDocument() {
+  localStorage.removeItem("parsedQuestions");
+  location.reload();
+}
+
+/* ===== shuffle ===== */
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+</script>
+</body>
+</html>
+
