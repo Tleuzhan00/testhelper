@@ -3,3 +3,7 @@
 Всего то нужно выбрать файл с вопросами и ответами  в котором правильный ответом будет первый стоящий
 дальше оно само рандомноо выберит 25 вопросов и рандомно распределит ответы, также от 1 до 100 вопросы встречаются на первых 12 вопросов, дальше от 100 до 200 на 12 и до 18 далее и т.д.
 Просто надо скачать данный html или создать новый текстовый документ и скопировать туда код и переименовать текстовый документ с окончанием html
+
+<img width="565" height="277" alt="dds" src="https://github.com/user-attachments/assets/83420a60-a28e-4ebc-abf5-a5f2ce5f4add" />
+<img width="575" height="562" alt="sdd" src="https://github.com/user-attachments/assets/8b38e7a6-0a07-488d-b0b0-5b71fa74806e" />
+<img width="560" height="518" alt="dsaf" src="https://github.com/user-attachments/assets/5c12ebea-df89-4e96-829d-9c2c0ebf12c4" />
